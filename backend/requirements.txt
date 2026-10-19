@@ -1,0 +1,10 @@
+crewai[google-genai]
+fastapi
+httpx
+litellm
+pydantic
+pymongo
+python-dotenv
+PyYAML
+ollama
+uvicorn[standard]

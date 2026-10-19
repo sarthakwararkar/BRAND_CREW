@@ -1,0 +1,143 @@
+plan_week:
+  agent: strategist
+  output: WeeklyPlan
+  description: |
+    Plan the content for week {week_id}.
+    Human theme override (may be empty, follow it if present): {theme_override}
+
+    BRAND KNOWLEDGE (read-only, authoritative):
+    {brand_context}
+
+    PAST CAMPAIGN LESSONS (most relevant and most recent first; may be empty on the first run):
+    {lesson_context}
+
+    KEYWORD HISTORY (recently targeted keywords and gaps):
+    {seo_context}
+
+    Rules:
+    - Prefer recent lessons. Treat lessons older than about 8 weeks as weaker evidence.
+    - Reuse angles that worked, avoid angles that flopped, do not repeat a keyword that was just covered.
+    - In lessons_used list the exact angle text of each lesson you relied on. Use an empty list if there were none.
+    - Propose 2-3 angles and exactly one angle to avoid.
+  expected_output: >
+    A WeeklyPlan with theme, audience segment, primary keyword, 2-3 angles, one angle to avoid,
+    channels, a short rationale and the lessons used.
+
+research_keywords:
+  agent: seo_researcher
+  output: SEOBrief
+  context: [plan_week]
+  description: |
+    Research keywords for the weekly plan (see context). Use the web_search tool for several
+    keyword candidates before deciding.
+
+    BRAND KNOWLEDGE (audience and product):
+    {brand_context}
+
+    KEYWORD HISTORY (avoid repeating these unless there is a clear reason):
+    {seo_context}
+
+    Deliver the primary keyword, secondary keywords, the dominant search intent, outline
+    suggestions for a blog post, and content gaps competitors leave open.
+  expected_output: >
+    An SEOBrief with primary and secondary keywords, search intent, outline suggestions and content gaps.
+
+draft_content:
+  agent: copywriter
+  output: ContentDraft
+  context: [plan_week, research_keywords]
+  description: |
+    Write this week's content following the plan and the SEO brief (see context).
+    Produce: a landing page copy (headline, subheadline, 3-4 sections, CTA, meta description),
+    a blog post in markdown (700-900 words, with the primary keyword in the title and an H2 structure),
+    one LinkedIn post, one X post (max 280 characters), one Instagram caption, hashtags,
+    and short visual direction notes (imagery, colors, layout).
+    State in angle_used which planned angle you followed.
+
+    BRAND VOICE AND RULES (authoritative, follow strictly):
+    {brand_context}
+
+    WHAT WORKED OR FLOPPED BEFORE (use as guidance, never copy old text):
+    {lesson_context}
+  expected_output: >
+    A complete ContentDraft with landing copy, blog, linkedin_post, x_post, instagram_caption,
+    hashtags, angle_used and visual_direction.
+
+check_visuals:
+  agent: visual_brand
+  output: VisualReport
+  context: [draft_content]
+  description: |
+    Review the visual_direction and any imagery/color/layout ideas in the draft (see context)
+    against the brand's visual identity.
+
+    VISUAL IDENTITY (read-only):
+    {visual_context}
+
+    Use the brand_visual_assets tool (target "palette" or "list") if you need more detail.
+    If no visual assets or visual notes exist, set applicable to false and explain in notes.
+  expected_output: >
+    A JSON object (not the JSON schema) with applicable, passed, issues, suggested_fixes and
+    notes. Only set passed to true if the draft passes the visual review.
+
+edit_for_brand:
+  agent: brand_editor
+  output: EditedContent
+  context: [draft_content, check_visuals]
+  description: |
+    Edit the full draft (see context) so it follows the brand guidelines exactly, and apply the
+    visual fixes where they affect the copy or visual_direction.
+
+    BRAND GUIDELINES (authoritative):
+    {brand_context}
+
+    YOUR OWN PAST CORRECTIONS (mistakes this copywriter repeats; check for them first):
+    {editor_notes}
+
+    Steps: 1) fix tone and wording, 2) run the brand_rule_checker tool on blog, landing text and
+    each social post, 3) fix every HIGH and MEDIUM finding, 4) return the corrected content in full
+    plus a report with a brand_score from 0-100, every violation you fixed, and recurring_patterns
+    worth remembering. Do not shorten content unless a rule requires it.
+  expected_output: >
+    EditedContent: the complete corrected ContentDraft under "content" and an EditorReport under "report".
+
+build_landing_page:
+  agent: landing_builder
+  context: [edit_for_brand]
+  description: |
+    Build the landing page from the edited landing copy (see context, under content.landing).
+
+    BRAND (colors, fonts, rules):
+    {visual_context}
+    {brand_context}
+
+    Requirements: one complete HTML document, inline CSS only, no external scripts/stylesheets/images,
+    system font fallbacks, mobile responsive, accessible (semantic tags, alt text, contrast),
+    a clear hero with the headline, subheadline and CTA button, then one section per copy section.
+    Use the palette colors exactly. Output ONLY the HTML document, nothing else.
+  expected_output: >
+    A single complete HTML document starting with <!DOCTYPE html>.
+
+analyze_performance:
+  agent: performance_analyst
+  output: Lessons
+  description: |
+    Week {week_id} results are below. Turn them into lessons.
+
+    RESULTS (outputs with approval status, ratings, notes and metrics):
+    {payload_json}
+
+    PAST LESSONS (avoid duplicates; refine instead of repeating):
+    {lesson_context}
+
+    BRAND GOALS (context only):
+    {brand_context}
+
+    Rules:
+    - One lesson per distinct angle/channel combination with enough signal.
+    - evidence must quote the actual numbers or ratings given. If there is little data, outcome is "mixed" and say the evidence is thin.
+    - why must be reasoning grounded in the evidence, not speculation presented as fact.
+    - recommendation says what to repeat or avoid next time.
+    - Do not create lessons for rejected outputs.
+  expected_output: >
+    A Lessons object containing a list of evidence-backed lessons.
